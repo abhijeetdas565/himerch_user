@@ -23,20 +23,35 @@ class WebViewApp extends StatefulWidget {
 
 class _WebViewAppState extends State<WebViewApp> {
   late final WebViewController _controller;
-  DateTime? lastPressed; // To track the last back button press time
+  bool isLoading = true; // Track loading state
+  DateTime? lastPressed;
 
   @override
   void initState() {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..loadRequest(Uri.parse("https://himerchind.com/"));
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            setState(() {
+              isLoading = true; // Show loader when page starts loading
+            });
+          },
+          onPageFinished: (url) {
+            setState(() {
+              isLoading = false; // Hide loader when page is fully loaded
+            });
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse("https://mobile.himerchind.com/"));
   }
 
   Future<bool> _onWillPop() async {
     if (await _controller.canGoBack()) {
       _controller.goBack();
-      return false; // Prevents app from closing
+      return false;
     } else {
       DateTime now = DateTime.now();
       if (lastPressed == null || now.difference(lastPressed!) > Duration(seconds: 2)) {
@@ -46,19 +61,30 @@ class _WebViewAppState extends State<WebViewApp> {
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
         );
-        return false; // Prevents app from closing on first back press
+        return false;
       }
-      return true; // Exits app if pressed again within 2 seconds
+      return true;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: _onWillPop, // Handle back button with toast
+      onWillPop: _onWillPop,
       child: Scaffold(
-        body: SafeArea(
-          child: WebViewWidget(controller: _controller),
+        body: Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            
+            // Semi-transparent overlay when loading
+            if (isLoading)
+              Container(
+                color: Colors.black.withAlpha(300), // Equivalent to 50% opacity (255 * 0.5)
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+          ],
         ),
       ),
     );
